@@ -12,8 +12,8 @@
 
 // ─── WIFI CREDENTIALS ─────────────────────────────────────────
 // Change these to match your network
-#define WIFI_SSID "bayschool_students"
-#define WIFI_PASS "TBS-Student#2025*"
+#define WIFI_SSID "***"
+#define WIFI_PASS "***"
 
 // ─── PINS ─────────────────────────────────────────────────────
 #define OT1 14
