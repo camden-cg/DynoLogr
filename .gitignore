@@ -1,7 +1,7 @@
 .DS_Store
 
 # Local Wi-Fi credentials
-firmware/DynoLogr/Secrets.h
+firmware/DynoLogr/Credentials.h
 
 # Private local planning notes
 NEXT_STEPS.private.txt
