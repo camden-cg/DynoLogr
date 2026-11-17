@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KineCar Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ════════════════════════════════════════
+     NAV RAIL
+════════════════════════════════════════ -->
+<nav id="nav-rail">
+  <div class="nav-logo">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2">
+      <rect x="1" y="8" width="22" height="10" rx="2"/>
+      <circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="18" r="2.5"/>
+      <path d="M6.5 8V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v2"/>
+    </svg>
+  </div>
+
+  <div class="nav-section">
+    <button class="nav-btn on" id="ni-live" data-tip="Live Dashboard" onclick="showPage('live',this)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <span class="nav-lbl">Live</span>
+    </button>
+    <button class="nav-btn" id="ni-editor" data-tip="Chart Editor" onclick="showPage('editor',this)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+      </svg>
+      <span class="nav-lbl">Editor</span>
+    </button>
+    <button class="nav-btn" id="ni-analysis" data-tip="Analysis & Export" onclick="showPage('analysis',this)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      <span class="nav-lbl">Analyze</span>
+    </button>
+  </div>
+
+  <div class="nav-sep"></div>
+
+  <div class="nav-section">
+    <button class="nav-btn" data-tip="Zero IMU" onclick="zeroAll()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="2"/><path d="M12 5V2M12 22v-3M5 12H2M22 12h-3M7.76 7.76 5.64 5.64M18.36 18.36l-2.12-2.12M7.76 16.24l-2.12 2.12M18.36 5.64l-2.12 2.12"/>
+      </svg>
+      <span class="nav-lbl">Zero</span>
+    </button>
+    <button class="nav-btn" data-tip="Reset Odometry" onclick="resetDev()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
+      </svg>
+      <span class="nav-lbl">Reset</span>
+    </button>
+  </div>
+
+  <div class="nav-spacer"></div>
+</nav>
+
+<!-- ════════════════════════════════════════
+     MAIN
+════════════════════════════════════════ -->
+<main id="main">
+
+<!-- top bar -->
+<div id="topbar">
+  <span class="topbar-brand">KineCar</span>
+  <span class="topbar-page" id="topbar-page">Live Dashboard</span>
+  <div class="topbar-sep"></div>
+
+  <div class="conn-zone">
+    <div class="conn-field">
+      <span class="conn-field-lbl">IP</span>
+      <input class="conn-inp" id="ipInput" type="text" placeholder="192.168.x.x" spellcheck="false" autocomplete="off">
+    </div>
+    <div class="conn-field">
+      <span class="conn-field-lbl">Poll</span>
+      <input class="conn-inp" id="pollInput" type="number" value="500">
+      <span class="conn-unit">ms</span>
+    </div>
+    <div class="status-pill">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Offline</span>
+    </div>
+  </div>
+
+  <div class="topbar-right">
+    <div class="rec-indicator" id="recIndicator">
+      <span>●</span><span>REC</span>
+    </div>
+    <button class="btn sm p" id="toggleBtn" onclick="togglePolling()">Stop</button>
+    <button class="btn sm" id="trialBtn" onclick="trialAction()">Start Trial</button>
+    <button class="btn sm" onclick="dlSelected()" title="Export selected trials as CSV">↓ CSV</button>
+  </div>
+</div>
+
+<!-- content -->
+<div id="cnt">
+
+<!-- ══ LIVE DASHBOARD ══ -->
+<div class="pg on" id="pg-live">
+<div class="page-inner">
+
+  <div class="pg-hdr">
+    <div>
+      <div class="pg-title">Live Dashboard</div>
+      <div class="pg-sub" id="live-sub">Ready to connect — enter IP to begin</div>
+    </div>
+    <div class="pg-hdr-r">
+      <button class="btn sm" onclick="za3d()">Zero 3D</button>
+      <button class="btn sm" onclick="zeroAll()">Zero All</button>
+    </div>
+  </div>
+
+  <!-- main grid: 3D car + data panel -->
+  <div class="live-main-grid">
+    <!-- 3D Car -->
+    <div class="car3d-card" id="car3dWrap">
+      <canvas id="car3d"></canvas>
+
+      <!-- YPR overlays -->
+      <div class="car3d-ypr">
+        <div class="ypr-chip"><span class="ypr-k">Y</span><span class="ypr-v" id="ypr-yaw">0.0°</span></div>
+        <div class="ypr-chip"><span class="ypr-k">P</span><span class="ypr-v" id="ypr-pitch">0.0°</span></div>
+        <div class="ypr-chip"><span class="ypr-k">R</span><span class="ypr-v" id="ypr-roll">0.0°</span></div>
+        <div class="ypr-chip"><span class="ypr-k">Steer</span><span class="ypr-v" id="ypr-steer">0°</span></div>
+      </div>
+
+      <!-- Vector legend -->
+      <div class="vec-legend" id="vecLegend">
+        <div class="vec-item"><div class="vec-line" style="background:#2563eb"></div><span class="vec-lbl">Velocity</span></div>
+        <div class="vec-item"><div class="vec-line" style="background:#dc2626"></div><span class="vec-lbl">Accel</span></div>
+        <div class="vec-item"><div class="vec-line" style="background:#059669;transform:rotate(-45deg)"></div><span class="vec-lbl">Force</span></div>
+      </div>
+
+      <div class="car3d-overlay-r">
+        <button class="glass-btn" id="mpuModeBtn" onclick="toggleMpuMode()" title="Toggle MPU filtered/raw">MPU: Filtered</button>
+        <button class="glass-btn" onclick="za3d()">Zero 3D</button>
+        <button class="glass-btn" onclick="zeroAll()">Zero All</button>
+      </div>
+    </div>
+
+    <!-- live data panel -->
+    <div class="live-data-panel">
+
+      <!-- kinetics data group -->
+      <div class="data-group">
+        <div class="data-group-hdr">Kinetics</div>
+        <div class="data-rows">
+          <div class="data-row"><div class="data-row-dot" style="background:var(--ac)"></div><span class="data-row-lbl">RPM</span><span class="data-row-val" id="dp-rpm">—</span></div>
+          <div class="data-row"><div class="data-row-dot" style="background:var(--gn)"></div><span class="data-row-lbl">Velocity</span><span class="data-row-val" id="dp-vel">—<small style="font-size:9px;color:var(--tx3)"> m/s</small></span></div>
+          <div class="data-row"><div class="data-row-dot" style="background:var(--tl)"></div><span class="data-row-lbl">Accel</span><span class="data-row-val" id="dp-acc">—<small style="font-size:9px;color:var(--tx3)"> m/s²</small></span></div>
+          <div class="data-row"><div class="data-row-dot" style="background:var(--pu)"></div><span class="data-row-lbl">Distance</span><span class="data-row-val" id="dp-dist">—<small style="font-size:9px;color:var(--tx3)"> m</small></span></div>
+          <div class="data-row"><div class="data-row-dot" style="background:var(--rd)"></div><span class="data-row-lbl">Displacement</span><span class="data-row-val" id="dp-disp">—<small style="font-size:9px;color:var(--tx3)"> m</small></span></div>
+          <div class="data-row"><div class="data-row-dot" style="background:var(--ye)"></div><span class="data-row-lbl">Direction</span><span class="data-row-val" id="dp-dir">—</span></div>
+          <div class="data-row"><div class="data-row-dot" style="background:var(--tx3)"></div><span class="data-row-lbl">Ticks</span><span class="data-row-val" id="dp-ticks">—</span></div>
+        </div>
+      </div>
+
+      <!-- steering data group -->
+      <div class="data-group">
+        <div class="data-group-hdr">Steering</div>
+        <div class="data-rows">
+          <div class="data-row"><div class="data-row-dot" style="background:var(--or)"></div><span class="data-row-lbl">Steer Angle</span><span class="data-row-val" id="dp-steer">0<small style="font-size:9px;color:var(--tx3)">°</small></span></div>
+          <div class="data-row"><div class="data-row-dot" style="background:var(--tx3)"></div><span class="data-row-lbl">Servo Raw</span><span class="data-row-val" id="dp-servo">90<small style="font-size:9px;color:var(--tx3)">°</small></span></div>
+        </div>
+        <!-- mini steering gauge -->
+        <div style="padding:6px 14px 10px">
+          <div style="position:relative;height:6px;background:var(--bg3);border-radius:3px;overflow:visible">
+            <div style="position:absolute;left:50%;top:-1px;width:2px;height:8px;background:var(--bd2);transform:translateX(-50%)"></div>
+            <div id="steer-bar-l" style="position:absolute;top:0;right:50%;height:6px;background:var(--or);border-radius:3px 0 0 3px;width:0%;transition:width .12s"></div>
+            <div id="steer-bar-r" style="position:absolute;top:0;left:50%;height:6px;background:var(--or);border-radius:0 3px 3px 0;width:0%;transition:width .12s"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:var(--tx3);font-family:var(--mono)"><span>−90°</span><span>0</span><span>+90°</span></div>
+        </div>
+      </div>
+
+      <!-- gyro data group -->
+      <div class="data-group">
+        <div class="data-group-hdr">Gyro · IMU</div>
+        <div class="data-rows">
+          <div class="data-row"><div class="data-row-dot" style="background:var(--tl)"></div><span class="data-row-lbl">Yaw</span><span class="data-row-val" id="dp-yaw">0.0<small style="font-size:9px;color:var(--tx3)">°</small></span></div>
+          <div class="data-row"><div class="data-row-dot" style="background:var(--pu)"></div><span class="data-row-lbl">Pitch</span><span class="data-row-val" id="dp-pitch">0.0<small style="font-size:9px;color:var(--tx3)">°</small></span></div>
+          <div class="data-row"><div class="data-row-dot" style="background:var(--ye)"></div><span class="data-row-lbl">Roll</span><span class="data-row-val" id="dp-roll">0.0<small style="font-size:9px;color:var(--tx3)">°</small></span></div>
+        </div>
+      </div>
+
+      <!-- trial controls -->
+      <div class="trial-controls">
+        <input class="trial-name-inp" id="trialNameInput" type="text" placeholder="Trial name…">
+        <div class="trial-btns">
+          <button class="btn success" id="trialBtnPanel" onclick="trialAction()">Start Trial</button>
+          <button class="btn sm" onclick="dlSelected()" title="Export CSV">↓ CSV</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- kinetics cards -->
+  <div>
+    <div class="sec-label">Kinetics Detail</div>
+    <div class="k-grid" id="kGrid">
+      <div class="k-card" id="kc-rpm">        <div class="k-stripe" style="background:var(--ac)"></div>  <div class="k-lbl">RPM</div>         <div class="k-val" id="kv-rpm" style="color:var(--ac)">—</div>                                   <div class="k-pbtn" onclick="openPlt('rpm')">⊕</div></div>
+      <div class="k-card" id="kc-velocity">   <div class="k-stripe" style="background:var(--gn)"></div>  <div class="k-lbl">Velocity</div>    <div class="k-val" id="kv-vel" style="color:var(--gn)">—<span class="k-unit">m/s</span></div> <div class="k-pbtn" onclick="openPlt('velocity')">⊕</div></div>
+      <div class="k-card" id="kc-accel">      <div class="k-stripe" style="background:var(--tl)"></div>  <div class="k-lbl">Accel</div>       <div class="k-val" id="kv-acc" style="color:var(--tl)">—<span class="k-unit">m/s²</span></div><div class="k-pbtn" onclick="openPlt('accel')">⊕</div></div>
+      <div class="k-card" id="kc-distance">   <div class="k-stripe" style="background:var(--pu)"></div>  <div class="k-lbl">Distance</div>    <div class="k-val" id="kv-dist" style="color:var(--pu)">—<span class="k-unit">m</span></div>  <div class="k-pbtn" onclick="openPlt('distance')">⊕</div></div>
+      <div class="k-card" id="kc-displacement"><div class="k-stripe" style="background:var(--rd)"></div>  <div class="k-lbl">Displacement</div><div class="k-val" id="kv-disp" style="color:var(--rd)">—<span class="k-unit">m</span></div>  <div class="k-pbtn" onclick="openPlt('displacement')">⊕</div></div>
+      <div class="k-card" id="kc-ticks">      <div class="k-stripe" style="background:var(--tx3)"></div> <div class="k-lbl">Ticks</div>       <div class="k-val" id="kv-ticks" style="color:var(--tx2)">—</div></div>
+      <div class="k-card" id="kc-dir">        <div class="k-stripe" style="background:var(--ye)"></div>  <div class="k-lbl">Direction</div>   <div class="k-val" id="kv-dir" style="color:var(--ye);font-size:12px">—</div></div>
+      <div class="k-card" id="kc-steer">     <div class="k-stripe" style="background:var(--or)"></div>  <div class="k-lbl">Steer Angle</div> <div class="k-val" id="kv-steer" style="color:var(--or)">0<span class="k-unit">°</span></div></div>
+    </div>
+  </div>
+
+  <!-- gyro blocks -->
+  <div>
+    <div class="sec-label">Orientation</div>
+    <div class="gyro-row">
+      <div class="g-block" id="gc-yaw">
+        <div class="g-name">Yaw</div>
+        <div class="g-val" id="gv-yaw">0.0°</div>
+        <div class="g-bar-wrap"><div class="g-bar" id="gb-yaw" style="width:50%;background:var(--tl)"></div></div>
+        <div class="g-btns"><span class="p-badge" onclick="openPlt('yaw')">⊕</span><span class="z-badge" onclick="za('yaw')">zero</span></div>
+      </div>
+      <div class="g-block" id="gc-pitch">
+        <div class="g-name">Pitch</div>
+        <div class="g-val" id="gv-pitch">0.0°</div>
+        <div class="g-bar-wrap"><div class="g-bar" id="gb-pitch" style="width:50%;background:var(--pu)"></div></div>
+        <div class="g-btns"><span class="p-badge" onclick="openPlt('pitch')">⊕</span><span class="z-badge" onclick="za('pitch')">zero</span></div>
+      </div>
+      <div class="g-block" id="gc-roll">
+        <div class="g-name">Roll</div>
+        <div class="g-val" id="gv-roll">0.0°</div>
+        <div class="g-bar-wrap"><div class="g-bar" id="gb-roll" style="width:50%;background:var(--ye)"></div></div>
+        <div class="g-btns"><span class="p-badge" onclick="openPlt('roll')">⊕</span><span class="z-badge" onclick="za('roll')">zero</span></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page-inner -->
+</div><!-- /pg-live -->
+
+<!-- ══ CHART EDITOR ══ -->
+<div class="pg" id="pg-editor">
+<div class="page-inner">
+  <div class="pg-hdr"><div class="pg-title">Chart Editor</div></div>
+  <div class="ce-bar">
+    <div class="ce-bar-group"><label>Chart</label>
+      <select class="sel" id="ce-type" onchange="rebuildEditorChart()">
+        <option value="scatter">Scatter</option>
+        <option value="line">Line</option>
+        <option value="bar">Bar</option>
+      </select>
+    </div>
+    <div class="ce-bar-sep"></div>
+    <div class="ce-bar-group"><label>Trial</label>
+      <select class="sel" id="ce-trial-sel" onchange="initEditorData();rebuildEditorChart()">
+        <option value="">— none —</option>
+      </select>
+    </div>
+    <div class="ce-bar-sep"></div>
+    <div class="ce-bar-group"><label>X</label>
+      <select class="sel" id="ce-x" onchange="rebuildEditorChart()">
+        <option value="ts_idx">Sample #</option><option value="time">Time (s)</option>
+        <option value="velocity">Velocity</option><option value="accel">Accel</option>
+        <option value="distance">Distance</option><option value="rpm">RPM</option>
+        <option value="yaw">Yaw</option><option value="pitch">Pitch</option><option value="roll">Roll</option>
+      </select>
+    </div>
+    <div class="ce-bar-sep"></div>
+    <div class="ce-bar-group"><label>Formula</label>
+      <input class="ce-formula-inp" id="ce-formula" placeholder="e.g. velocity * 3.6" oninput="applyFormula()">
+    </div>
+    <span class="ce-eq-out" id="ce-eq-out" style="display:none"></span>
+    <button class="btn sm p" onclick="rebuildEditorChart()" style="margin-left:auto">Update</button>
+    <button class="btn sm" onclick="addEditorRow()">+ Row</button>
+  </div>
+  <div class="ce-body">
+    <div class="ce-chart-pnl">
+      <div class="ce-chart-hdr">
+        <span class="ce-chart-ttl">Preview</span>
+        <div id="ce-plot-list" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <div class="ce-chart-wrap"><canvas id="ceChart"></canvas></div>
+    </div>
+    <div class="ce-table-pnl">
+      <div class="ce-table-hdr">
+        <span class="ce-table-ttl">Data</span>
+        <button class="btn sm" onclick="clearEditorData()">Clear</button>
+      </div>
+      <div class="dtable-wrap">
+        <table class="dtable">
+          <thead><tr><th>#</th><th>X val</th><th>Y val</th><th></th></tr></thead>
+          <tbody id="editorTBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══ ANALYSIS (viewer + exporter merged) ══ -->
+<div class="pg" id="pg-analysis">
+<div class="page-inner">
+  <div class="pg-hdr"><div class="pg-title">Analysis</div></div>
+
+  <!-- tabs -->
+  <div class="an-tabs" style="align-self:center">
+    <button class="an-tab on" onclick="switchAnTab('viewer',this)">Chart Viewer</button>
+    <button class="an-tab" onclick="switchAnTab('trials',this)">Trials & Export</button>
+  </div>
+
+  <!-- ── Chart Viewer panel ── -->
+  <div class="an-panel on" id="anp-viewer">
+    <div class="cv-grid">
+      <div class="cv-chart-box">
+        <div class="cv-chart-ctrls">
+          <select class="sel" id="cva-trial" onchange="rebuildCVA()"><option value="">— trial A —</option></select>
+          <select class="sel" id="cva-y" onchange="rebuildCVA()">
+            <option value="velocity">Velocity</option><option value="accel">Accel</option><option value="rpm">RPM</option>
+            <option value="distance">Distance</option><option value="displacement">Displacement</option>
+            <option value="yaw">Yaw</option><option value="pitch">Pitch</option><option value="roll">Roll</option>
+          </select>
+          <select class="sel" id="cva-trend" onchange="rebuildCVA()">
+            <option value="none">No fit</option><option value="linear">Linear</option>
+            <option value="poly">Polynomial</option><option value="exp">Exponential</option>
+          </select>
+        </div>
+        <div class="cv-chart-body"><canvas id="cv-chartA"></canvas></div>
+      </div>
+      <div class="cv-stat-box">
+        <div class="cv-stat-lbl">Peak Velocity</div>
+        <div class="cv-stat-val" id="cvs-vel">—<span class="cv-stat-unit">m/s</span></div>
+        <div class="cv-stat-sub" id="cvs-vel-sub">no trial</div>
+      </div>
+      <div class="cv-chart-box">
+        <div class="cv-chart-ctrls">
+          <select class="sel" id="cvb-trial" onchange="rebuildCVB()"><option value="">— trial B —</option></select>
+          <select class="sel" id="cvb-y" onchange="rebuildCVB()">
+            <option value="accel">Accel</option><option value="velocity">Velocity</option><option value="rpm">RPM</option>
+            <option value="distance">Distance</option><option value="displacement">Displacement</option>
+            <option value="yaw">Yaw</option><option value="pitch">Pitch</option><option value="roll">Roll</option>
+          </select>
+          <select class="sel" id="cvb-trend" onchange="rebuildCVB()">
+            <option value="none">No fit</option><option value="linear">Linear</option>
+            <option value="poly">Polynomial</option><option value="exp">Exponential</option>
+          </select>
+        </div>
+        <div class="cv-chart-body"><canvas id="cv-chartB"></canvas></div>
+      </div>
+      <div class="cv-stat-box">
+        <div class="cv-stat-lbl">Peak Accel</div>
+        <div class="cv-stat-val" id="cvs-acc">—<span class="cv-stat-unit">m/s²</span></div>
+        <div class="cv-stat-sub" id="cvs-acc-sub">no trial</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Trials & Export panel ── -->
+  <div class="an-panel" id="anp-trials">
+    <div class="trials-layout">
+      <div class="trials-main">
+        <div class="card">
+          <div class="card-hdr" onclick="togSec('sec-tm',this)">
+            <span class="card-ttl"><span class="chev">▾</span>Trial Manager</span>
+          </div>
+          <div class="card-body" id="sec-tm">
+            <div class="tact">
+              <input class="t-name-inp" id="trialNameInput2" type="text" placeholder="Trial name…">
+              <button class="btn success" id="trialBtnPanel2" onclick="trialAction2()">Start Trial</button>
+              <button class="btn" onclick="selAll()">All</button>
+              <button class="btn" onclick="selNone()">None</button>
+            </div>
+            <div class="tlist" id="trialsList"><div class="tempty" id="trialsEmpty">No trials yet. Start recording from the Live Dashboard.</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-hdr" onclick="togSec('sec-an',this)">
+            <span class="card-ttl"><span class="chev">▾</span>Plot Analysis</span>
+          </div>
+          <div class="card-body" id="sec-an">
+            <div class="an-row">
+              <span class="an-lbl">X:</span>
+              <select class="sel" id="an-x"><option value="ts_idx">Sample #</option><option value="time">Time (s)</option><option value="velocity">Velocity</option><option value="accel">Accel</option><option value="distance">Distance</option><option value="displacement">Displacement</option><option value="rpm">RPM</option><option value="yaw">Yaw</option><option value="pitch">Pitch</option><option value="roll">Roll</option></select>
+              <span class="an-lbl">Y:</span>
+              <select class="sel" id="an-y"><option value="velocity">Velocity</option><option value="accel">Accel</option><option value="distance">Distance</option><option value="displacement">Displacement</option><option value="rpm">RPM</option><option value="time">Time</option><option value="yaw">Yaw</option><option value="pitch">Pitch</option><option value="roll">Roll</option></select>
+              <button class="btn p sm" onclick="plotAn()">Plot</button>
+              <button class="btn sm" onclick="clearAn()">Clear</button>
+            </div>
+            <div class="anopts">
+              <label class="chk"><input type="checkbox" id="an-ind" checked> Individual</label>
+              <label class="chk"><input type="checkbox" id="an-avg"> Avg trendline</label>
+              <label class="chk"><input type="checkbox" id="an-lin"> Linear fit</label>
+              <label class="chk"><input type="checkbox" id="an-poly"> Poly fit</label>
+            </div>
+            <div class="ac-wrap" id="anWrap" style="display:none"><canvas id="anChart" height="190"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="trials-side">
+        <div class="card">
+          <div class="card-hdr" onclick="togSec('sec-dl',this)">
+            <span class="card-ttl"><span class="chev">▾</span>Export CSV</span>
+          </div>
+          <div class="card-body" id="sec-dl">
+            <div style="font-size:11.5px;color:var(--tx2);margin-bottom:8px;font-weight:500">Select columns to export:</div>
+            <div class="colsel" id="colSel"></div>
+            <div style="margin-top:11px;display:flex;align-items:center;gap:8px">
+              <button class="btn p sm" onclick="dlSelected()">↓ Download CSV</button>
+              <span id="dlSummary" style="font-size:11px;color:var(--tx3)"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div><!-- /pg-analysis -->
+
+</div><!-- /cnt -->
+
+<footer>
+  <span id="fi">ESP32: —</span>
+  <span id="fp">Poll: —</span>
+  <span id="fs">Samples: 0</span>
+  <span id="fl">Last: —</span>
+</footer>
+</main>
+
+<!-- PLOT MODAL -->
+<div class="modal-ov" id="pModal">
+  <div class="modal">
+    <div class="m-ttl" id="pTitle">Create Plot</div>
+    <div class="m-sub">Select axes for this saved plot.</div>
+    <div class="m-field"><label>Y axis</label><select id="py"><option value="rpm">RPM</option><option value="velocity">Velocity (m/s)</option><option value="accel">Accel (m/s²)</option><option value="distance">Distance (m)</option><option value="displacement">Displacement (m)</option><option value="yaw">Yaw (°)</option><option value="pitch">Pitch (°)</option><option value="roll">Roll (°)</option></select></div>
+    <div class="m-field"><label>X axis</label><select id="px"><option value="time">Time (s)</option><option value="ts_idx">Sample #</option><option value="distance">Distance</option><option value="velocity">Velocity</option><option value="rpm">RPM</option></select></div>
+    <div class="m-field"><label>Name</label><input type="text" id="pname" placeholder="e.g. Velocity vs Distance"></div>
+    <div class="m-btns">
+      <button class="btn" onclick="closePlt()">Cancel</button>
+      <button class="btn p" onclick="createPlt()">Add</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/dashboard.js"></script>
+</body>
+</html>
