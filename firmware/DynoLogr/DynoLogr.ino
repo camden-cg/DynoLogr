@@ -9,7 +9,7 @@
 #include <WebServer.h>
 #include <ArduinoJson.h>
 #include <math.h>
-#include "Secrets.h"
+#include "Credentials.h"
 
 void onConnectedController(ControllerPtr ctl);
 void onDisconnectedController(ControllerPtr ctl);
