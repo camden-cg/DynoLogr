@@ -33,9 +33,9 @@ Install the remaining libraries included by the sketch: Adafruit GFX,
 Adafruit SSD1306, Adafruit MPU6050, Adafruit Unified Sensor, ESP32Servo, and
 ArduinoJson. The ESP32 Arduino core provides Wire, WiFi, and WebServer.
 
-Copy `firmware/DynoLogr/Secrets.example.h` to
-`firmware/DynoLogr/Secrets.h` and set `WIFI_SSID` and `WIFI_PASS` there.
-`Secrets.h` is ignored by Git and should remain local. The firmware continues
+Copy `firmware/DynoLogr/Credentials.example.h` to
+`firmware/DynoLogr/Credentials.h` and set `WIFI_SSID` and `WIFI_PASS` there.
+`Credentials.h` is ignored by Git and should remain local. The firmware continues
 to run without Wi-Fi.
 
 ## Dashboard
